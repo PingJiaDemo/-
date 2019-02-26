@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<div id="container"></div>
+<script src="CiteFire/three.js"></script>
+<script src="CiteFire//OrbitControls.js"></script>
+<script>
+    var camera,controls;
+    var renderer;
+    var scene;
+    init();
+    animate();
+    function  init() {
+        //查找id为container的元素
+        var  container=document.getElementById('container');
+
+        renderer=new THREE.WebGLRenderer();
+        //设置canvas的像素比为当前设备的屏幕像素比，避免高分屏下模糊
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth,window.innerHeight);
+        //在页面中添加canvas
+        container.appendChild( renderer.domElement );
+
+
+        scene=new THREE.Scene();
+
+        camera=new THREE.PerspectiveCamera( 90, window.innerWidth / window.innerHeight, 0.1, 100 );
+        camera.position.z = 0.01;//????
+
+        controls=new THREE.OrbitControls(camera,renderer.domElement);
+        controls.enableZoom=false;//滚轮是否可控制
+        controls.enablePan=false;//是否可以平移
+        controls.enableDamping=true;//惯性滑动
+        controls.rotateSpeed=-0.25;
+
+
+        //从图集中取图片
+        var textures=getTexturesFromAtlasFile("textures/sun_temple_stripe.jpg",6)
+
+        var materials=[];
+        for(var i=0;i<6;i++)
+        {
+            //向数组的末尾添加元素，返回数组的新长度
+            materials.push(new THREE.MeshBasicMaterial({map:textures[i]}));
+        }
+
+        var skyBox=new THREE.Mesh(new THREE.BoxBufferGeometry(1,1,1),materials);
+        skyBox.geometry.scale(1,1,-1);//f翻转了z轴，使所有的面都朝里（改变了法向量的方向）
+        scene.add(skyBox);
+
+        window.addEventListener('resize',onWindowResize,false);
+
+    }
+    function getTexturesFromAtlasFile( atlasImgUrl, tilesNum ) {
+
+        var textures = [];
+
+        for ( var i = 0; i < tilesNum; i ++ ) {
+
+            textures[ i ] = new THREE.Texture();
+
+        }
+
+        var imageObj = new Image();
+
+        imageObj.onload = function () {
+
+            var canvas, context;
+            var tileWidth = imageObj.height;
+
+            for ( var i = 0; i < textures.length; i ++ ) {
+
+                canvas = document.createElement( 'canvas' );
+                context = canvas.getContext( '2d' );
+                canvas.height = tileWidth;
+                canvas.width = tileWidth;
+                context.drawImage( imageObj, tileWidth * i, 0, tileWidth, tileWidth, 0, 0, tileWidth, tileWidth );
+                textures[ i ].image = canvas;
+                textures[ i ].needsUpdate = true;
+
+            }
+
+        };
+
+        imageObj.src = atlasImgUrl;
+
+        return textures;
+
+    }
+    function onWindowResize() {
+
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+
+        renderer.setSize( window.innerWidth, window.innerHeight );
+
+    }
+    function animate() {
+
+        requestAnimationFrame( animate );
+
+        controls.update(); // required when damping is enabled
+
+        renderer.render( scene, camera );
+
+    }
+    </script>
+</body>
+</html>
