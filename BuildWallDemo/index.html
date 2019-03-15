@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>buildwall</title>
+
+    <link rel="stylesheet" href="css/demo.css">
+</head>
+<body>
+<div style="">
+    <div class="controlContainer" id="controlContainer">
+        <div class="listContainer" style="margin-top: 40px">
+            <div class="textFirst">编辑</div>
+        </div>
+        <div class="listButton">
+            <button onclick="addBut()">添加</button>
+            <button onclick="deleteMesh()">删除</button>
+            <button onclick="">导出</button>
+        </div>
+        <div class="listContainer">
+            <div class="textFirst">控制</div>
+        </div>
+        <div class="listButton">
+            <button onclick="transMod()">位移</button>
+            <button onclick="rotateMod()">旋转</button>
+            <button onclick="scaleMod()">缩放</button>
+        </div>
+        <div class="listContainer">
+            <div class="textFirst">材质</div>
+        </div>
+        <div class="listButton">
+            <button onclick="changeTex(1)">水泥</button>
+            <button onclick="changeTex(2)">玻璃</button>
+            <button onclick="changeTex(3)">砖头</button>
+        </div>
+    </div>
+</div>
+<script src="js/threer92.js"></script>
+<script src="js/WebGL.js"></script>
+<script src="js/OrbitControls.js"></script>
+<script src="js/TransformControls.js"></script>
+<script src="js/demo.js"></script>
+</body>
+</html>

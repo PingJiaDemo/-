@@ -1,0 +1,44 @@
+.controlContainer{
+    position: fixed;
+    right: 20px;
+    top:20px;
+    width: 591px;
+    height: 345px;
+    background: url("../img/contralBg.png");
+    z-index: 99999;
+}
+.listContainer{
+    height: 36px;
+    display: flex;/*弹性盒子*/
+    flex-direction: row;/*主轴水平方向，起点在左端；*/
+    justify-content: space-between;/*两端对齐，项目之间间隔相等*/
+
+}
+
+.listContainer input{
+    margin-left: 20px;
+    margin-top: 10px;
+    width: 230px;
+}
+.textFirst{
+    font-size: 18px;
+    margin-left:40px ;/*左外边框*/
+    text-align: left;
+    color: whitesmoke;
+    line-height: 36px;
+
+}
+.listButton{
+    width: 510px;
+    margin-left: 40px;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+.listButton button{
+    width: 120px;
+    height: 30px;
+    font-size: 16px;
+    background-color: #00ffd8;
+}
