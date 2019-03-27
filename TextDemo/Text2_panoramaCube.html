@@ -3,15 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <title>Title</title>
+    <link rel="stylesheet" href="css/demo.css">
 </head>
 <body>
 <div id="container"></div>
+<div class="logoVR">
+    <img width="77" height="39" src="textures/VR.png">
+</div>
 <script src="CiteFire/three.js"></script>
 <script src="CiteFire/OrbitControls.js"></script>
+<script src="CiteFire/GPUParticleSystem.js"></script>
+<script src="CiteFire/WebGL.js"></script>
+<script src="CiteFire/WebVR.js"></script>
+<script src="CiteFire/cardboardEffect.js"></script>
 <script>
-    var camera,controls;
+    var camera,orbitcontrols;
     var renderer;
     var scene;
+    var skyBox;
+    var target=new THREE.Vector3();//相机焦点
+
+    var isUserInteracting=false;//用户是否操作
+    var onMouseDownMouseX=0,onMouseDownMouseY=0,
+        lon=0,onMouseDownLon=0,
+        lat=0,onMouseDownLat=0,
+        phi=0,theta=0;
+
+    var vrMode=true;//VR开关
     init();
     animate();
     function  init() {
@@ -31,11 +49,11 @@
         camera=new THREE.PerspectiveCamera( 90, window.innerWidth / window.innerHeight, 0.1, 100 );
         camera.position.z = 0.01;//????
 
-        controls=new THREE.OrbitControls(camera,renderer.domElement);
-        controls.enableZoom=false;//滚轮是否可控制
-        controls.enablePan=false;//是否可以平移
-        controls.enableDamping=true;//惯性滑动
-        controls.rotateSpeed=-0.25;
+        orbitcontrols=new THREE.OrbitControls(camera,renderer.domElement);
+        orbitcontrols.enableZoom=false;//滚轮是否可控制
+        orbitcontrols.enablePan=false;//是否可以平移
+        orbitcontrols.enableDamping=true;//惯性滑动
+        orbitcontrols.rotateSpeed=-0.25;
 
 
         //从图集中取图片
@@ -48,12 +66,59 @@
             materials.push(new THREE.MeshBasicMaterial({map:textures[i]}));
         }
 
-        var skyBox=new THREE.Mesh(new THREE.BoxBufferGeometry(1,1,1),materials);
+        skyBox=new THREE.Mesh(new THREE.BoxBufferGeometry(1,1,1),materials);
         skyBox.geometry.scale(1,1,-1);//f翻转了z轴，使所有的面都朝里（改变了法向量的方向）
         scene.add(skyBox);
 
+        document.addEventListener( 'mousedown', onPointerStart, false );
+        document.addEventListener( 'mousemove', onPointerMove, false );
+        document.addEventListener( 'mouseup', onPointerUp, false );
+
+        //鼠标滚轮事件
+        document.addEventListener( 'wheel', onDocumentMouseWheel, false );
+
+        document.addEventListener( 'touchstart', onPointerStart, false );
+        document.addEventListener( 'touchmove', onPointerMove, false );
+        document.addEventListener( 'touchend', onPointerUp, false );
+
         window.addEventListener('resize',onWindowResize,false);
 
+        //粒子系统
+        var controls = new function () {
+            this.size = 10;
+            this.transparent = true;
+            this.opacity =0.6;
+            this.color = 0xE61AE6;
+
+            this.sizeAttenuation = true;
+
+            this.redraw = function () {
+                var toRemove = [];
+                scene.children.forEach(function (child) {
+                    if (child instanceof THREE.PointCloud) {
+                        toRemove.push(child);
+                    }
+                });
+                toRemove.forEach(function (child) {
+                    scene.remove(child)
+                });
+                createPointClouds(controls.size, controls.transparent, controls.opacity, controls.sizeAttenuation, controls.color);
+            };
+        };
+
+         // var gui = new dat.GUI();
+         // gui.add(controls, 'size', 0, 20).onChange(controls.redraw);
+         // gui.add(controls, 'transparent').onChange(controls.redraw);
+        //gui.add(controls, 'opacity', 0, 1).onChange(controls.redraw);
+       // gui.addColor(controls, 'color').onChange(controls.redraw);
+       // gui.add(controls, 'sizeAttenuation').onChange(controls.redraw);
+
+        controls.redraw();
+
+        //VR 采用cardbroad方案
+        effect = new THREE.CardboardEffect(renderer);
+        effect.setSize(window.innerWidth, window.innerHeight);
+        window.addEventListener('resize', onWindowResize, false);
     }
     function getTexturesFromAtlasFile( atlasImgUrl, tilesNum ) {
 
@@ -91,21 +156,135 @@
         return textures;
 
     }
+    function onPointerStart(event) {
+        isUserInteracting=true;
+
+        var clientx=event.clientX||event.touches[0].clientX;
+        var clienty=event.clientY||event.touches[0].clientY;
+
+        onMouseDownMouseX=clientx;
+        onMouseDownMouseY=clienty;
+
+        onMouseDownLon=lon;
+        onMouseDownLat=lat;
+    }
+    function onPointerMove(event) {
+        if(isUserInteracting){
+            var clientX = event.clientX || event.touches[ 0 ].clientX;
+            var clientY = event.clientY || event.touches[ 0 ].clientY;
+
+            lon = ( onMouseDownMouseX - clientX ) * 0.1 + onMouseDownLon;
+            lat = ( clientY - onMouseDownMouseY ) * 0.1 + onMouseDownLat;
+        }
+    }
+    function onPointerUp() {
+
+        isUserInteracting = false;
+
+    }
+    function onDocumentMouseWheel( event ) {
+
+        var fov = camera.fov + event.deltaY * 0.05;
+
+        camera.fov = THREE.Math.clamp( fov, 10, 75 );
+
+        camera.updateProjectionMatrix();
+
+    }
     function onWindowResize() {
 
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
 
         renderer.setSize( window.innerWidth, window.innerHeight );
-
+        effect.setSize(window.innerWidth, window.innerHeight);
     }
     function animate() {
+        if(vrMode){
+            effect.render(scene,camera);
+        }
+        else {
+            renderer.render( scene, camera );
+        }
 
         requestAnimationFrame( animate );
 
-        controls.update(); // required when damping is enabled
+        orbitcontrols.update(); // required when damping is enabled
 
-        renderer.render( scene, camera );
+        //全景自动旋转
+
+     //   lon=Math.max(-85,Math.min(85,lon));//限制固定角度内旋转
+    /*    if(isUserInteracting===false) {
+           lon += 0.1; //自动旋转
+       }
+        lat=Math.max(-85,Math.min(85,lat));
+       phi=THREE.Math.degToRad(90-lat);//度数转为弧度
+       theta=THREE.Math.degToRad(lon);
+      target.x=Math.sin(phi)*Math.cos(theta);
+        target.y=Math.cos(phi);
+        target.z=Math.sin(phi)*Math.sin(theta);
+      camera.lookAt(target);*/
+        if(isUserInteracting===false) {
+            skyBox.rotation.y += 0.001; //自动旋转
+        }
+
+        //粒子系统
+/*        scene.children.forEach(function (child) {
+            if (child instanceof THREE.PointCloud) {
+                var vertices = child.geometry.vertices;
+                vertices.forEach(function (v) {
+                    v.y = v.y - (v.velocityY);
+                    v.x = v.x - (v.velocityX);
+                    v.z = v.z - (v.velocityZ);
+
+                    if (v.y <= 0) v.y = 60;
+                    if (v.x <= -20 || v.x >= 20) v.velocityX = v.velocityX * -1;
+                    if (v.z <= -20 || v.z >= 20) v.velocityZ = v.velocityZ * -1;
+                });
+            }
+        });*/
+
+
+
+    }
+    //粒子系统
+    function createPointClouds(size,transparent,opacity,sizeAttenuation,color) {
+      var texture1=THREE.ImageUtils.loadTexture("textures/hua_1.png");
+        var texture2=THREE.ImageUtils.loadTexture("textures/hua_2.png");
+        var texture3=THREE.ImageUtils.loadTexture("textures/hua_3.png");
+        scene.add(createPointCloud("system1",texture1,size,transparent,
+            opacity,sizeAttenuation,color));
+        scene.add(createPointCloud("system2",texture2,size,transparent,
+            opacity,sizeAttenuation,color));
+        scene.add(createPointCloud("system3",texture3,size,transparent,
+            opacity,sizeAttenuation,color));
+
+    }
+    function createPointCloud(name,texture,size,transparent,opacity,sizeAttenuation,color) {
+        var geom=new THREE.Geometry();
+
+        var color=new THREE.Color(color);
+        color.setHSL(color.getHSL().h,color.getHSL().s,(Math.random())*color.getHSL().l);
+
+        var material=new THREE.PointCloudMaterial({size:size,
+        transparent:transparent,opacity:opacity,map:texture,
+        blending:THREE.AdditiveBlending,depthWrite:false,
+        sizeAttenuation:sizeAttenuation,color:color});
+
+        var range=40;
+        for(var i=0;i<50;i++){
+            var particle=new THREE.Vector3(Math.random()*range-range/2,Math.random()*range*1.5,
+                Math.random()*range-range/2);
+            particle.velocityY=0.1+Math.random()/5;
+            particle.velocityX=(Math.random()-0.5)/3;
+            particle.velocityZ=(Math.random()-0.5)/3;
+            geom.vertices.push(particle);
+        }
+        var cloud=new THREE.PointCloud(geom,material);
+        cloud.name=name;
+        cloud.sortParticles=true;
+        console.log(cloud);
+        return cloud;
 
     }
     </script>

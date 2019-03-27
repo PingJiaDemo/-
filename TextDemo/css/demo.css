@@ -1,0 +1,11 @@
+.logoVR{
+    width: 164px;
+    height: 160px;
+    position: absolute;
+    top: 90px;
+    margin-left: -82px;
+    left: 50%;
+    z-index: 2;
+    text-align: center;
+
+}
