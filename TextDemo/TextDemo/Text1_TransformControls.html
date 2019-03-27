@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>three.js webgl - orbit controls</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <style>
+        body {
+            color: #000;
+            font-family:Monospace;
+            font-size:13px;
+            text-align:center;
+            font-weight: bold;
+
+            background-color: #fff;
+            margin: 0px;
+            overflow: hidden;
+        }
+
+        #info {
+            color:#000;
+            position: absolute;
+            top: 0px; width: 100%;
+            padding: 5px;
+            box-sizing: border-box;
+        }
+
+        a {
+            color: red;
+        }
+    </style>
+</head>
+
+<body>
+<div id="info">
+
+</div>
+
+<script src="CiteFire/three.js"></script>
+<script src="CiteFire/OrbitControls.js"></script>
+<script src="CiteFire/WebGL.js"></script>
+<script src="CiteFire/TransformControls.js"></script>
+
+<script>
+
+    //import {attach} from "../src/Three.Legacy";
+
+    if ( WEBGL.isWebGLAvailable() === false ) {
+
+        document.body.appendChild( WEBGL.getWebGLErrorMessage() );
+
+    }
+
+    var camera, controls, scene, renderer,mesh,mesh1;
+
+    init();
+
+    animate();
+
+    function init() {
+
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color( 0xcccccc );
+        scene.fog = new THREE.FogExp2( 0xcccccc, 0.002 );
+
+        // 添加渲染器
+        renderer = new THREE.WebGLRenderer( );
+        renderer.setPixelRatio( window.devicePixelRatio );// 设置像素比，针对高清屏
+        renderer.setSize( window.innerWidth, window.innerHeight );//设置画布大小
+        document.body.appendChild( renderer.domElement );//吧画布插入到dom中
+
+        //添加摄像机 设置视野 及位置
+        camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 1000 );
+        camera.position.set( 300, 300, 300 );
+        // world 添加正方体
+        var s=25;
+        var cube=new THREE.CubeGeometry(s,s,s);
+        for(var i=0;i<3;i++)
+        {
+
+            var material=new THREE.MeshBasicMaterial({color:randomColor()});
+            var mesh=new THREE.Mesh(cube,material);
+            mesh.position.x=5+(250*Math.random());
+            mesh.position.y=0;
+            mesh.position.z=5+(250*Math.random());
+
+            mesh.rotation.x=Math.random()*Math.PI;
+            mesh.rotation.y=Math.random()*Math.PI;
+            mesh.rotation.z=Math.random()*Math.PI;
+
+            mesh.updateMatrix();
+            scene.add(mesh);
+        }
+
+        // controls
+        //创建orbit控制器
+        orbit = new THREE.OrbitControls( camera, renderer.domElement );
+        //使动画循环使用时阻尼或自转 是否有惯性
+        orbit.enableDamping = true;
+        //阻尼洗漱 就是鼠标拖拽旋转灵敏度
+        orbit.dampingFactor = 0.25;
+        //这个不知道
+        orbit.screenSpacePanning = false;
+        //设置相机离原点的最远最近距离
+        orbit.minDistance = 100;
+        orbit.maxDistance = 500;
+       //最大仰视角为90度
+        orbit.maxPolarAngle = Math.PI / 2;
+
+
+
+
+
+       //添加辅助坐标系
+        var axes=new THREE.AxisHelper(500);
+        scene.add(axes);
+        //添加辅助面
+        var size=500;//网格的大小
+        var divisions=10;//跨网格的分割数
+        var  gridHelper=new THREE.GridHelper(size,divisions);
+        gridHelper.position.set(0,0,0);
+        scene.add(gridHelper);
+        // lights
+        //添加平行光
+        var light = new THREE.DirectionalLight( 0xffffff );
+        light.position.set( 1, 1, 1 );
+        scene.add( light );
+
+       //添加环境光
+        var light = new THREE.AmbientLight( 0xffffff );
+        scene.add( light );
+
+
+
+        //添加窗口变形的响应事件
+        window.addEventListener( 'resize', onWindowResize, false );
+
+    }
+    function randomColor()
+    {
+        var arrHex=["0","1","2","3","4","5","6","7","8","9","a","b","c","d","e","f"],
+            strHex="#",
+            index;
+        for(var i=0;i<6;i++)
+        {
+            index=Math.round(Math.random()*15);
+            strHex+=arrHex[index];
+        }
+        return strHex;
+    }
+    //创建拖拽控制器
+    transformcontrol = new THREE.TransformControls( camera, renderer.domElement );
+    transformcontrol.addEventListener( 'change', render );
+
+    transformcontrol.addEventListener( 'dragging-changed', function ( event ) {
+
+        orbit.enabled = ! event.value;
+
+    } );
+    //transformcontrol.attach( mesh);
+    scene.add( transformcontrol );
+    //检测点击
+    var raycaster=new THREE.Raycaster();
+    var mouse=new THREE.Vector2();
+    function onMouseClick(event)
+    {
+        //通过鼠标点击的位置计算出raycaster所需要的点的位置，以屏幕中心为原点，值的范围为-1到1.
+
+        mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+        mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+
+        // 通过鼠标点的位置和当前相机的矩阵计算出raycaster
+        raycaster.setFromCamera( mouse, camera );
+
+        // 获取raycaster直线和所有模型相交的数组集合
+        var intersects = raycaster.intersectObjects( scene.children );
+
+        console.log(intersects);
+
+        //将所有的相交的模型的颜色设置为红色，如果只需要将第一个触发事件，那就数组的第一个模型改变颜色即可
+        if(intersects.length==0){
+            console.log("为空");
+            orbit.enabled=true;
+            transformcontrol.detach();
+           // transformcontrol.dispose();
+        }
+        if(intersects.length>0){
+
+            orbit.enabled=false;
+            transformcontrol.attach(intersects[0].object );
+
+        }
+    /*    for(var i=0;i<intersects.length;i++){
+
+            intersects[i].object.material.color.set( 0x00ffff );
+
+        }*/
+     //  transformcontrol.dispose();
+     //   transformcontrol.attach( intersects[0]);
+
+
+
+    }
+    window.addEventListener( 'click', onMouseClick, false );
+
+    function onWindowResize() {
+
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+
+        renderer.setSize( window.innerWidth, window.innerHeight );
+
+    }
+
+    function animate() {
+
+        requestAnimationFrame( animate );
+        //更新orbit  摄像机
+        orbit.update(); // only required if controls.enableDamping = true, or if controls.autoRotate = true
+
+        render();
+
+    }
+
+    function render() {
+
+        renderer.render( scene, camera );
+
+    }
+
+</script>
+
+</body>
+</html>
