@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <style>
+        body {
+            background-color: #000000;
+            margin: 0px;
+            overflow: hidden;
+            font-family:Monospace;
+            font-size:13px;
+            text-align:center;
+            font-weight: bold;
+        }
+
+        a {
+            color:#00ff78;
+        }
+
+        #info {
+            color: #fff;
+            position: absolute;
+            top: 10px;
+            width: 100%;
+            text-align: center;
+            display:block;
+        }
+        .dg.ac {
+            z-index: 1 !important; /* FIX DAT.GUI */
+        }
+    </style>
+</head>
+<body>
+<script src="../CiteFire/three.js"></script>
+<script src="../CiteFire/OrbitControls.js"></script>
+
+<script src="../CiteFire/WebGL.js"></script>
+
+<script src="../CiteFire/CopyShader.js"></script>
+<script src="../CiteFire/FXAAShader.js"></script>
+<script src="../CiteFire/EffectComposer.js"></script>
+<script src="../CiteFire/RenderPass.js"></script>
+<script src="../CiteFire/ShaderPass.js"></script>
+<script src="../CiteFire/OutlinePass.js"></script>
+<script src='../CiteFire/dat.gui.min.js'></script>
+<script>
+    if ( WEBGL.isWebGLAvailable() === false ) {
+
+        document.body.appendChild( WEBGL.getWebGLErrorMessage() );
+
+    }
+
+    let camera,scene,renderer,orbitcontrols,container;
+    let composer,effectFXAA,outlinePass;
+    var  objects=new Array();;
+    var selectedObjects = [];
+
+    var selectMesh;
+    var raycaster = new THREE.Raycaster();
+    var mouse = new THREE.Vector2();
+
+    var params = {
+        edgeStrength: 3.0,
+        edgeGlow: 0.0,
+        edgeThickness: 1.0,
+        pulsePeriod: 0,
+        rotate: false,
+        usePatternTexture: false
+    };
+
+    // Init gui
+
+    var gui = new dat.GUI( { width: 300 } );
+
+    gui.add( params, 'edgeStrength', 0.01, 10 ).onChange( function ( value ) {
+
+        outlinePass.edgeStrength = Number( value );
+
+    } );
+
+    gui.add( params, 'edgeGlow', 0.0, 1 ).onChange( function ( value ) {
+
+        outlinePass.edgeGlow = Number( value );
+
+    } );
+
+    gui.add( params, 'edgeThickness', 1, 4 ).onChange( function ( value ) {
+
+        outlinePass.edgeThickness = Number( value );
+
+    } );
+
+    gui.add( params, 'pulsePeriod', 0.0, 5 ).onChange( function ( value ) {
+
+        outlinePass.pulsePeriod = Number( value );
+
+    } );
+
+
+    var Configuration = function () {
+
+        this.visibleEdgeColor = '#ffffff';
+        this.hiddenEdgeColor = '#190a05';
+
+    };
+
+    var conf = new Configuration();
+
+    gui.addColor( conf, 'visibleEdgeColor' ).onChange( function ( value ) {
+
+        outlinePass.visibleEdgeColor.set( value );
+
+    } );
+
+    gui.addColor( conf, 'hiddenEdgeColor' ).onChange( function ( value ) {
+
+        outlinePass.hiddenEdgeColor.set( value );
+
+    } );
+    init();
+    animate();
+    function init() {
+        container=document.createElement('div');
+        document.body.appendChild(container);
+
+        var width=window.innerWidth;
+        var height=window.innerHeight;
+
+        renderer=new THREE.WebGLRenderer();
+        renderer.setSize(width,height);
+        document.body.appendChild(renderer.domElement);
+
+        scene=new THREE.Scene();
+
+        camera=new THREE.PerspectiveCamera(45,width/height,0.1,100);
+        camera.position.set(0,5,13);
+
+        orbitcontrols=new THREE.OrbitControls(camera,renderer.domElement);
+        orbitcontrols.minDistance=5;
+        orbitcontrols.maxDistance = 20;
+        orbitcontrols.enablePan = false;//不开启右键拖拽
+        orbitcontrols.enableDamping = true;
+        orbitcontrols.dampingFactor = 0.25;
+
+
+        //添加环境光
+        scene.add( new THREE.AmbientLight( 0xaaaaaa, 0.5 ) );
+
+        var light = new THREE.DirectionalLight( 0xddffdd, 0.6 );
+        light.position.set( 1, 1, 1 );
+
+        //底板
+        var floorMaterial=new THREE.MeshLambertMaterial({side:THREE.DoubleSide});
+        var floorgeo=new THREE.PlaneBufferGeometry(12,12);
+        var floormesh=new THREE.Mesh(floorgeo,floorMaterial);
+        floormesh.rotation.x-=Math.PI*0.5;
+        floormesh.position.y-=1.5;
+        scene.add(floormesh);
+        camera.lookAt(floormesh);
+
+        //发光线
+        var lineMaterial=new THREE.MeshLambertMaterial({side: THREE.DoubleSide,color: 0xffaaff });
+        var lineGeo=new THREE.TorusBufferGeometry(1,0.1,16,100);
+        var lineMesh=new THREE.Mesh(lineGeo,lineMaterial);
+        scene.add(lineMesh);
+        objects.push(lineMesh);
+       // objects.push(floormesh);
+
+
+        //后期处理
+        composer=new THREE.EffectComposer(renderer);
+
+        var renderPass=new THREE.RenderPass(scene,camera);
+        composer.addPass(renderPass);
+
+        outlinePass = new THREE.OutlinePass( new THREE.Vector2( window.innerWidth, window.innerHeight ), scene, camera );
+        composer.addPass( outlinePass );
+
+        effectFXAA=new THREE.ShaderPass(THREE.FXAAShader);
+        effectFXAA.uniforms['resolution'].value.set(1/width,1/height);
+        effectFXAA.renderToScreen = true;
+        composer.addPass(effectFXAA);
+
+      //  selectedObjects = [];
+     //   selectedObjects.push( lineMesh);
+       // selectedObjects.push(floormesh);
+       //outlinePass.selectedObjects=selectedObjects;
+      //  outlinePass.selectedObjects = selectedObjects;
+
+        //添加窗口变形的响应事件
+        window.addEventListener( 'resize', onWindowResize, false );
+
+       window.addEventListener('click',OnClick,false);
+    }
+    function onWindowResize() {
+
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+
+        renderer.setSize( window.innerWidth, window.innerHeight );
+
+        composer.setSize(  window.innerWidth, window.innerHeight  );
+
+        effectFXAA.uniforms[ 'resolution' ].value.set( 1 / window.innerWidth, 1 / window.innerHeight );
+
+
+    }
+    function addSelectedObject( object ) {
+
+        selectedObjects = [];
+        selectedObjects.push( object );
+
+    }
+    function OnClick() {
+        //选中模型
+
+            mouse.set((event.clientX / window.innerWidth) * 2 - 1, -(event.clientY / window.innerHeight) * 2 + 1);
+            raycaster.setFromCamera(mouse, camera);
+            var intersects = raycaster.intersectObjects(objects);
+            console.log(intersects.length);
+            if (intersects.length > 0) {
+
+                    selectMesh = intersects[0].object;
+                    addSelectedObject( selectMesh );
+                    outlinePass.selectedObjects = selectedObjects;
+                    console.log(outlinePass.edgeThickness)
+
+            }
+    }
+    function animate() {
+
+        requestAnimationFrame(animate);
+
+        orbitcontrols.update();
+
+        composer.render();
+
+      renderer.render( scene, camera );
+
+    }
+</script>
+</body>
+</html>
